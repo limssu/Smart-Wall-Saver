@@ -44,9 +44,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-
-    // 하단 탭 및 머티리얼 UI 컴포넌트 활용을 위한 핵심 라이브러리
-    implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("com.google.ar:core:1.54.0")
 }
