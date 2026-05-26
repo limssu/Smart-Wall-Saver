@@ -47,3 +47,18 @@
 * **Language**: Kotlin
 * **UI Architecture**: Single Activity, Multi-Fragments (BottomNavigationView 적용)
 * **Sensors**: Hardware Magnetic Field, Gyroscope, Accelerometer Sensors, VibratorManager
+
+---
+
+## 📅 프로젝트 일정 및 진행 계획
+
+교수님 피드백 및 학사 일정에 맞춘 'Smart Wall-Saver' 팀의 개발 및 발표 로드맵
+
+### 📌 주요 일정
+- [x] **05.26** :  06.02 대면 점검 시간 확정, 패키지 분업 구조 세팅 및 깃허브 원격 저장소 동기화 완료
+- [ ] **06.02** : **교수님 대면 중간 점검** 🔍
+  - *주요 목표*: 프로젝트 중간 점검(18:10분 예정), 핵심 기능 중심의 프로토타입 대면 피드백 수행
+- [ ] **06.09** : **보강 주간 (수업 없음)** 💻
+  - *주요 목표*: 중간 점검 피드백 반영, 센서 데이터 보정 및 UI 정밀 고도화 기간, 앱 통합 빌드 및 최종 프로젝트 결과물 제작
+- [ ] **06.16** : **최종 프로젝트 발표 및 배포** 🚀
+  - *주요 목표*: 최종 앱 구동 시연, 깃허브 최종 커밋, 최종 발표 자료 및 최종 보고서 제출
