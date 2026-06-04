@@ -4,11 +4,11 @@
     <item
         android:id="@+id/navigation_scan"
         android:icon="@android:drawable/ic_dialog_alert"
-        android:title="Safety Scan" />
+        android:title="전선 탐지" />
 
     <item
         android:id="@+id/navigation_leveler"
         android:icon="@android:drawable/btn_star"
-        android:title="Smart Leveler" />
+        android:title="수평계" />
 
 </menu>

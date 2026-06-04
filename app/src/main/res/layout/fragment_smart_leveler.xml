@@ -1,6 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://tools.android.com/tools"
+    android:id="@+id/leveler_root_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#121212"
+    tools:context=".leveler.SmartLevelerFragment">
 
-</LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/view_leveler_circle"
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:background="@drawable/bg_circle"
+        android:backgroundTint="#555555"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.45">
+
+        <View
+            android:id="@+id/view_inner_circle"
+            android:layout_width="212dp"
+            android:layout_height="212dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_circle"
+            android:backgroundTint="#1E1E1E" />
+
+        <TextView
+            android:id="@+id/tv_current_angle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="0.1°"
+            android:textColor="#FFFFFF"
+            android:textSize="54sp"
+            android:textStyle="bold" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tv_leveler_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="수평을 맞추는 중..."
+        android:textColor="#888888"
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="@+id/view_leveler_circle"
+        app:layout_constraintStart_toStartOf="@+id/view_leveler_circle"
+        app:layout_constraintTop_toBottomOf="@+id/view_leveler_circle" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
