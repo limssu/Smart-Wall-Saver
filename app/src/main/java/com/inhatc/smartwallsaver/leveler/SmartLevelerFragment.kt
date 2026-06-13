@@ -22,15 +22,17 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
-    private var magneticField: Sensor? = null
 
     private val accelerometerReading = FloatArray(3)
-    private val magnetometerReading = FloatArray(3)
-    private val rotationMatrix = FloatArray(9)
-    private val orientationAngles = FloatArray(3)
 
-    // 🎯 [유지] 피드백 주신 가장 최적의 Low-Pass Filter 가중치 값
+    // 🎯 센서 노이즈 및 각도 댐핑을 위한 가중치
     private val alpha = 0.07f
+
+    // 🎯 [추가] 최종 계산된 각도가 튀는 것을 막아줄 필터링된 각도 저장 변수
+    private var filteredAngle = 0.0
+
+    // 🎯 모드 관리 변수 (true: 바닥 눕힘 기준, false: 벽면 세움 기준)
+    private var isFlatMode = true
 
     // UI 컴포넌트 변수
     private lateinit var tvCurrentAngle: TextView
@@ -38,6 +40,10 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
     private lateinit var viewLevelerCircle: View
     private lateinit var viewInnerCircle: View
     private lateinit var levelerRootLayout: View
+
+    // 추가된 모드 토글 뷰
+    private lateinit var tvModeFlat: TextView
+    private lateinit var tvModeStanding: TextView
 
     private var vibrator: Vibrator? = null
     private var isVibrated = false
@@ -55,13 +61,53 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
         viewLevelerCircle = view.findViewById(R.id.view_leveler_circle)
         viewInnerCircle = view.findViewById(R.id.view_inner_circle)
 
+        tvModeFlat = view.findViewById(R.id.tv_mode_flat)
+        tvModeStanding = view.findViewById(R.id.tv_mode_standing)
+
         sensorManager = requireActivity().getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        // 🎯 자력계(MAGNETIC)는 사용하지 않으므로 가속도 센서만 깔끔하게 등록합니다.
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        magneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
         initVibrator()
+        initModeToggle()
 
         return view
+    }
+
+    private fun initModeToggle() {
+        tvModeFlat.setOnClickListener {
+            if (!isFlatMode) {
+                isFlatMode = true
+                isVibrated = false
+                filteredAngle = 0.0 // 🎯 모드 변경 시 이전 각도 잔상이 남지 않도록 초기화
+                updateToggleUi()
+                calculateTiltAngle()
+            }
+        }
+
+        tvModeStanding.setOnClickListener {
+            if (isFlatMode) {
+                isFlatMode = false
+                isVibrated = false
+                filteredAngle = 0.0 // 🎯 모드 변경 시 이전 각도 잔상이 남지 않도록 초기화
+                updateToggleUi()
+                calculateTiltAngle()
+            }
+        }
+    }
+
+    private fun updateToggleUi() {
+        if (isFlatMode) {
+            tvModeFlat.text = "● 바닥 모드"
+            tvModeFlat.setTextColor("#FF823A".toColorInt())
+            tvModeStanding.text = "○ 벽면 모드"
+            tvModeStanding.setTextColor("#888888".toColorInt())
+        } else {
+            tvModeFlat.text = "○ 바닥 모드"
+            tvModeFlat.setTextColor("#888888".toColorInt())
+            tvModeStanding.text = "● 벽면 모드"
+            tvModeStanding.setTextColor("#FF823A".toColorInt())
+        }
     }
 
     private fun initVibrator() {
@@ -79,9 +125,6 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
         accelerometer?.also { sensor ->
             sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI)
         }
-        magneticField?.also { sensor ->
-            sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI)
-        }
     }
 
     override fun onPause() {
@@ -92,12 +135,9 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
             applyLowPassFilter(event.values, accelerometerReading)
-        } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-            applyLowPassFilter(event.values, magnetometerReading)
+            // 🎯 [수정] 오직 가속도 센서가 실제로 새로 측정되었을 때만 계산을 수행합니다.
+            calculateTiltAngle()
         }
-
-        // 🎯 [수정] 통합 기울기를 계산하는 메서드로 변경하여 호출
-        calculateTiltAngle()
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -108,36 +148,47 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
         }
     }
 
-    // 🎯 [변경] 이름 및 내부 로직 수정 (Pitch와 Roll을 모두 고려한 3차원 기울기 계산)
     private fun calculateTiltAngle() {
-        SensorManager.getRotationMatrix(rotationMatrix, null, accelerometerReading, magnetometerReading)
-        SensorManager.getOrientation(rotationMatrix, orientationAngles)
+        val ax = accelerometerReading[0]
+        val ay = accelerometerReading[1]
+        val az = accelerometerReading[2]
 
-        val pitchRadians = orientationAngles[1] // 🔄 X축 기준 회전 (앞뒤)
-        val rollRadians = orientationAngles[2]  // 🔄 Y축 기준 회전 (좌우)
+        val norm = kotlin.math.sqrt(ax * ax + ay * ay + az * az)
+        if (norm == 0f) return
 
-        // 3차원 공간 상에서 두 축의 회전값을 결합하여 '바닥 평면으로부터 들어 올려진 총 각도'를 구합니다.
-        val cosTilt = kotlin.math.cos(pitchRadians) * kotlin.math.cos(rollRadians)
-        val safeCosTilt = cosTilt.coerceIn(-1.0f, 1.0f) // 연산 오차 방지 경계값 제한
+        // 1. 원시 가속도 센서 기반으로 즉시 측정된 원시 각도(rawAngle) 계산
+        val rawAngle = if (isFlatMode) {
+            val cosTilt = az / norm
+            val safeCosTilt = cosTilt.coerceIn(-1.0f, 1.0f)
+            Math.toDegrees(kotlin.math.acos(safeCosTilt).toDouble())
+        } else {
+            val cosTilt = ay / norm
+            val safeCosTilt = cosTilt.coerceIn(-1.0f, 1.0f)
+            Math.toDegrees(kotlin.math.acos(safeCosTilt).toDouble())
+        }
 
-        val totalTiltRadians = kotlin.math.acos(safeCosTilt)
-        val currentAngle = Math.toDegrees(totalTiltRadians.toDouble())
+        // 2. 🎯 [핵심] 삼각함수 연산 결과로 나온 최종 각도에 한 번 더 저주파 필터(LPF) 적용
+        // 이 단계를 거쳐야 수식의 제곱 연산 때문에 발생하던 '벽면 모드 특유의 미세한 튐'이 완벽하게 제거됩니다.
+        if (filteredAngle == 0.0) {
+            filteredAngle = rawAngle
+        } else {
+            filteredAngle = filteredAngle + alpha * (rawAngle - filteredAngle)
+        }
 
-        // 🎯 수평 판정 오차 범위
+        val currentAngle = filteredAngle
+
+        // 🎯 수평 판정 및 디자인 매핑 로직 (기존과 동일)
         if (currentAngle <= 0.15) {
             tvCurrentAngle.text = "0.0°"
             tvLevelerStatus.text = "수평이 맞습니다!"
 
-            // 🖤 배경은 언제나 시크한 검정색(#121212) 유지!
             levelerRootLayout.setBackgroundColor("#121212".toColorInt())
             viewInnerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#1E1E1E".toColorInt())
 
-            // 🟠 [기획 핵심] 오직 바깥쪽 원형 띠와 텍스트들만 포인트 주황색(#FF823A)으로 강렬하게 점등!
             viewLevelerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#FF823A".toColorInt())
             tvCurrentAngle.setTextColor("#FF823A".toColorInt())
             tvLevelerStatus.setTextColor("#FF823A".toColorInt())
 
-            // 일회성 진동 피드백
             if (!isVibrated) {
                 vibrator?.let {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -150,17 +201,15 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
                 isVibrated = true
             }
         } else {
-            // ⚪ [평상시 기울어진 상태] 미니멀한 실버/그레이 톤 유지
             tvCurrentAngle.text = String.format(Locale.getDefault(), "%.1f°", currentAngle)
             tvLevelerStatus.text = "수평을 맞추는 중..."
 
-            levelerRootLayout.setBackgroundColor("#121212".toColorInt()) // 배경 검정
-            viewInnerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#1E1E1E".toColorInt()) // 안쪽 원
+            levelerRootLayout.setBackgroundColor("#121212".toColorInt())
+            viewInnerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#1E1E1E".toColorInt())
 
-            // 평소에는 원형 띠와 글씨가 은은한 그레이/화이트 톤
-            viewLevelerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#555555".toColorInt()) // 비활성 회색 테두리
-            tvCurrentAngle.setTextColor("#FFFFFF".toColorInt()) // 기본 흰색 각도
-            tvLevelerStatus.setTextColor("#888888".toColorInt()) // 상태 메시지 회색
+            viewLevelerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#555555".toColorInt())
+            tvCurrentAngle.setTextColor("#FFFFFF".toColorInt())
+            tvLevelerStatus.setTextColor("#888888".toColorInt())
 
             isVibrated = false
         }
