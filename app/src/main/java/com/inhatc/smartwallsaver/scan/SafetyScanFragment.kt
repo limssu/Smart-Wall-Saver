@@ -43,8 +43,17 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
     private var pausedFrameCount = 0
 
     @Volatile
-    private var isDrawingActive = false // 기본값은 '정지(Ready)' 상태
+    private var isDrawingActive = false
     private var lastAnchorTimestamp = 0L
+
+    // 💡 [추가] 상대 평면 연산을 가동하기 위한 스캔 시작 원점 포즈 버퍼
+    private var referencePose: Pose? = null
+
+    // 3D 좌표 손떨림 상쇄를 위한 필터 메모리 변수
+    private var lastX = 0f
+    private var lastY = 0f
+    private var lastZ = 0f
+    private var isFirstPoint = true
 
     private lateinit var arCoreManager: ArCoreManager
     private lateinit var scanGridView: ScanGridView
@@ -55,7 +64,6 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
     private val detectedWireAnchors = mutableListOf<Anchor>()
     private var wireDetectionListener: WireDetectionListener? = null
 
-    // UI 컴포넌트
     private lateinit var txtStatus: TextView
     private lateinit var txtMagneticStrength: TextView
     private lateinit var txtWarningBanner: TextView
@@ -105,25 +113,26 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
         arSurfaceView.setRenderer(this)
         arSurfaceView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
 
-        // 시작, 중지 버튼
         btnStartStop.setOnClickListener {
             isDrawingActive = !isDrawingActive
             if (isDrawingActive) {
                 btnStartStop.text = "스캔 중지"
-                btnStartStop.backgroundTintList = ColorStateList.valueOf("#E53935".toColorInt()) // 빨간색 변경
+                btnStartStop.backgroundTintList = ColorStateList.valueOf("#E53935".toColorInt())
             } else {
                 btnStartStop.text = "스캔 시작"
-                btnStartStop.backgroundTintList = ColorStateList.valueOf("#FF823A".toColorInt()) // 주황색 원복
-                txtWarningBanner.visibility = View.GONE // 중지 시 경고배너 X
+                btnStartStop.backgroundTintList = ColorStateList.valueOf("#FF823A".toColorInt())
+                txtWarningBanner.visibility = View.GONE
+                referencePose = null // 스캔 중지 시 평면 원점 초기화
             }
         }
 
-        // 초기화 버튼
         btnClear.setOnClickListener {
             synchronized(detectedWireAnchors) {
-                detectedWireAnchors.clear() // 탐지 데이터 초기화
+                detectedWireAnchors.clear()
             }
-            scanGridView.updatePoints(emptyList()) // 즉시 화면 초기화
+            isFirstPoint = true
+            referencePose = null
+            scanGridView.updatePoints(emptyList())
             txtWarningBanner.visibility = View.GONE
             Toast.makeText(context, "탐지된 전선과 화면이 초기화되었습니다.", Toast.LENGTH_SHORT).show()
         }
@@ -143,11 +152,9 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
         magneticSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
-
         if (isCameraPermissionGranted && arCoreManager.session == null) {
             arCoreManager.initSession()
         }
-
         arCoreManager.resume()
         arSurfaceView.onResume()
     }
@@ -161,7 +168,6 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null) return
-
         if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
             magneticValues[0] = filterAlpha * event.values[0] + (1 - filterAlpha) * magneticValues[0]
             magneticValues[1] = filterAlpha * event.values[1] + (1 - filterAlpha) * magneticValues[1]
@@ -208,7 +214,7 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
         if (trackingState != TrackingState.TRACKING && pausedFrameCount > MAX_PAUSED_GRACE_FRAMES) {
             activity?.runOnUiThread {
                 txtMagneticStrength.text = "자기장 수치: %.1f uT".format(Locale.US, strength)
-                txtStatus.text = "스캔 일시정지됨... 벽면에서 조금 떨어져 주변을 비춰주세요"
+                txtStatus.text = "스캔 준비 중... 문틀이나 가구 주변을 먼저 비춰주세요"
             }
             return
         }
@@ -218,38 +224,55 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
             txtStatus.text = if (isDrawingActive) "벽면 전선 추적 중..." else "추적 일시 정지"
         }
 
-        // 사용자의 선택에 따라 화면에 맵을 그릴 것인지 아닌지 체크
-        if (isDrawingActive) {
-            val view = view ?: return
-            val centerX = view.width / 2f
-            val centerY = view.height / 2f
-
-            var finalPose: Pose? = null
-
-            val hitResult = arCoreManager.performVerticalPlaneHitTest(currentFrame, centerX, centerY)
-            if (hitResult != null) {
-                finalPose = hitResult.hitPose
-            } else {
-                val cameraPose = currentFrame.camera.pose
-                finalPose = cameraPose.compose(Pose.makeTranslation(0f, 0f, -0.05f))
+        if (isDrawingActive && trackingState == TrackingState.TRACKING) {
+            // 💡 사용자가 [스캔 시작]을 누른 시점의 카메라 최초 포즈를 상대 연산 원점 평면으로 지정
+            if (referencePose == null) {
+                referencePose = currentFrame.camera.pose
             }
 
-            if (finalPose != null) {
+            val ref = referencePose
+            if (ref != null) {
+                val currPose = currentFrame.camera.pose
+
+                // 🔥 [수학적 오프셋 보정 핵심 기법 적용]
+                // 기준 평면 역행렬 곱 연산으로 앞뒤 이동 노이즈 제거 및 순수 벽면 변위 도출
+                val relativePose = ref.inverse().compose(currPose)
+                val deltaX = relativePose.tx()
+                val deltaY = relativePose.ty()
+
                 val isWire = strength > WIRE_THRESHOLD_LIMIT
 
                 if (isWire) {
                     activity?.runOnUiThread { txtWarningBanner.visibility = View.VISIBLE }
 
-                    if (trackingState == TrackingState.TRACKING) {
-                        // 0.3초당 한번씩 업데이트 되도록 고정
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastAnchorTimestamp > ANCHOR_THROTTLE_MS) {
-                            val newAnchor = session.createAnchor(finalPose)
-                            synchronized(detectedWireAnchors) {
-                                if (detectedWireAnchors.isEmpty() || getDistance(detectedWireAnchors.last(), newAnchor) > 0.05f) {
-                                    detectedWireAnchors.add(newAnchor)
-                                    lastAnchorTimestamp = currentTime // 마지막 저장 시간 갱신
-                                }
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastAnchorTimestamp > ANCHOR_THROTTLE_MS) {
+
+                        // 💡 카메라-센서 상하 유격(5cm 오프셋) 물리 캘리브레이션 반영 로컬 가상 포즈 생성
+                        val correctedLocalPose = Pose.makeTranslation(deltaX, deltaY - 0.05f, -0.05f)
+                        // 다시 월드 좌표계 영역으로 재투영 복원
+                        val finalPose = ref.compose(correctedLocalPose)
+
+                        // 3D 공간 저역통과 필터 연산 수행 (출렁임 완벽 소멸)
+                        val smoothingFactor = 0.12f
+                        if (isFirstPoint) {
+                            lastX = finalPose.tx()
+                            lastY = finalPose.ty()
+                            lastZ = finalPose.tz()
+                            isFirstPoint = false
+                        } else {
+                            lastX = smoothingFactor * finalPose.tx() + (1f - smoothingFactor) * lastX
+                            lastY = smoothingFactor * finalPose.ty() + (1f - smoothingFactor) * lastY
+                            lastZ = smoothingFactor * finalPose.tz() + (1f - smoothingFactor) * lastZ
+                        }
+
+                        val stabilizedPose = Pose.makeTranslation(lastX, lastY, lastZ)
+                        val newAnchor = session.createAnchor(stabilizedPose)
+
+                        synchronized(detectedWireAnchors) {
+                            if (detectedWireAnchors.isEmpty() || getDistance(detectedWireAnchors.last(), newAnchor) > 0.05f) {
+                                detectedWireAnchors.add(newAnchor)
+                                lastAnchorTimestamp = currentTime
                             }
                         }
                     }
@@ -257,15 +280,15 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
                     activity?.runOnUiThread { txtWarningBanner.visibility = View.GONE }
                 }
 
+                // 리스너 콜백 패스 전달
                 val dataPoint = WireData(
-                    x = finalPose.tx(), y = finalPose.ty(), z = finalPose.tz(),
+                    x = deltaX, y = deltaY - 0.05f, z = -0.05f,
                     intensity = strength, isWireDetected = isWire
                 )
                 wireDetectionListener?.onWirePointDetected(dataPoint)
             }
         }
 
-        // 3D 매트릭스 및 그려진 화면 유지
         val camera = currentFrame.camera
         camera.getViewMatrix(viewMatrix, 0)
         camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100f)
@@ -328,11 +351,8 @@ class SafetyScanFragment : Fragment(), SensorEventListener, GLSurfaceView.Render
     }
 
     companion object {
-        private const val WIRE_THRESHOLD_LIMIT = 150.0f
-        // 화면에 그린 줄이 유지되도록 하는 최소 시간
+        private const val WIRE_THRESHOLD_LIMIT = 130.0f
         private const val MAX_PAUSED_GRACE_FRAMES = 180
-
-        // 센서 데이터 수집 속도 제한 (0.3초당 1번)
         private const val ANCHOR_THROTTLE_MS = 300L
     }
 }

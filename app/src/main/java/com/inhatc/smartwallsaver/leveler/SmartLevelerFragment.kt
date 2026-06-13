@@ -17,7 +17,6 @@ import androidx.fragment.app.Fragment
 import com.inhatc.smartwallsaver.R
 import java.util.Locale
 import androidx.core.graphics.toColorInt
-import kotlin.math.abs
 
 class SmartLevelerFragment : Fragment(), SensorEventListener {
 
@@ -29,6 +28,9 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
     private val magnetometerReading = FloatArray(3)
     private val rotationMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
+
+    // 🎯 [유지] 피드백 주신 가장 최적의 Low-Pass Filter 가중치 값
+    private val alpha = 0.07f
 
     // UI 컴포넌트 변수
     private lateinit var tvCurrentAngle: TextView
@@ -89,23 +91,37 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-            System.arraycopy(event.values, 0, accelerometerReading, 0, accelerometerReading.size)
+            applyLowPassFilter(event.values, accelerometerReading)
         } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-            System.arraycopy(event.values, 0, magnetometerReading, 0, magnetometerReading.size)
+            applyLowPassFilter(event.values, magnetometerReading)
         }
 
-        calculateRollAngle()
+        // 🎯 [수정] 통합 기울기를 계산하는 메서드로 변경하여 호출
+        calculateTiltAngle()
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    private fun calculateRollAngle() {
+    private fun applyLowPassFilter(input: FloatArray, output: FloatArray) {
+        for (i in input.indices) {
+            output[i] = output[i] + alpha * (input[i] - output[i])
+        }
+    }
+
+    // 🎯 [변경] 이름 및 내부 로직 수정 (Pitch와 Roll을 모두 고려한 3차원 기울기 계산)
+    private fun calculateTiltAngle() {
         SensorManager.getRotationMatrix(rotationMatrix, null, accelerometerReading, magnetometerReading)
         SensorManager.getOrientation(rotationMatrix, orientationAngles)
 
-        val rollRadians = orientationAngles[2]
-        val rollDegrees = Math.toDegrees(rollRadians.toDouble())
-        val currentAngle = abs(rollDegrees)
+        val pitchRadians = orientationAngles[1] // 🔄 X축 기준 회전 (앞뒤)
+        val rollRadians = orientationAngles[2]  // 🔄 Y축 기준 회전 (좌우)
+
+        // 3차원 공간 상에서 두 축의 회전값을 결합하여 '바닥 평면으로부터 들어 올려진 총 각도'를 구합니다.
+        val cosTilt = kotlin.math.cos(pitchRadians) * kotlin.math.cos(rollRadians)
+        val safeCosTilt = cosTilt.coerceIn(-1.0f, 1.0f) // 연산 오차 방지 경계값 제한
+
+        val totalTiltRadians = kotlin.math.acos(safeCosTilt)
+        val currentAngle = Math.toDegrees(totalTiltRadians.toDouble())
 
         // 🎯 수평 판정 오차 범위
         if (currentAngle <= 0.15) {
