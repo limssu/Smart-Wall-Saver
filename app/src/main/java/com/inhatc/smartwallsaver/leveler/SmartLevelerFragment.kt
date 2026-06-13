@@ -1,7 +1,6 @@
 package com.inhatc.smartwallsaver.leveler
 
 import android.content.Context
-import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -17,6 +16,8 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.inhatc.smartwallsaver.R
 import java.util.Locale
+import androidx.core.graphics.toColorInt
+import kotlin.math.abs
 
 class SmartLevelerFragment : Fragment(), SensorEventListener {
 
@@ -104,7 +105,7 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
 
         val rollRadians = orientationAngles[2]
         val rollDegrees = Math.toDegrees(rollRadians.toDouble())
-        val currentAngle = Math.abs(rollDegrees)
+        val currentAngle = abs(rollDegrees)
 
         // 🎯 수평 판정 오차 범위
         if (currentAngle <= 0.15) {
@@ -112,13 +113,13 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
             tvLevelerStatus.text = "수평이 맞습니다!"
 
             // 🖤 배경은 언제나 시크한 검정색(#121212) 유지!
-            levelerRootLayout.setBackgroundColor(Color.parseColor("#121212"))
-            viewInnerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E1E1E"))
+            levelerRootLayout.setBackgroundColor("#121212".toColorInt())
+            viewInnerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#1E1E1E".toColorInt())
 
             // 🟠 [기획 핵심] 오직 바깥쪽 원형 띠와 텍스트들만 포인트 주황색(#FF823A)으로 강렬하게 점등!
-            viewLevelerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF823A"))
-            tvCurrentAngle.setTextColor(Color.parseColor("#FF823A"))
-            tvLevelerStatus.setTextColor(Color.parseColor("#FF823A"))
+            viewLevelerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#FF823A".toColorInt())
+            tvCurrentAngle.setTextColor("#FF823A".toColorInt())
+            tvLevelerStatus.setTextColor("#FF823A".toColorInt())
 
             // 일회성 진동 피드백
             if (!isVibrated) {
@@ -137,13 +138,13 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
             tvCurrentAngle.text = String.format(Locale.getDefault(), "%.1f°", currentAngle)
             tvLevelerStatus.text = "수평을 맞추는 중..."
 
-            levelerRootLayout.setBackgroundColor(Color.parseColor("#121212")) // 배경 검정
-            viewInnerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#1E1E1E")) // 안쪽 원
+            levelerRootLayout.setBackgroundColor("#121212".toColorInt()) // 배경 검정
+            viewInnerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#1E1E1E".toColorInt()) // 안쪽 원
 
             // 평소에는 원형 띠와 글씨가 은은한 그레이/화이트 톤
-            viewLevelerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#555555")) // 비활성 회색 테두리
-            tvCurrentAngle.setTextColor(Color.parseColor("#FFFFFF")) // 기본 흰색 각도
-            tvLevelerStatus.setTextColor(Color.parseColor("#888888")) // 상태 메시지 회색
+            viewLevelerCircle.backgroundTintList = android.content.res.ColorStateList.valueOf("#555555".toColorInt()) // 비활성 회색 테두리
+            tvCurrentAngle.setTextColor("#FFFFFF".toColorInt()) // 기본 흰색 각도
+            tvLevelerStatus.setTextColor("#888888".toColorInt()) // 상태 메시지 회색
 
             isVibrated = false
         }
