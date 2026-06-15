@@ -31,8 +31,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 2. 🎯 [수정] 앱 실행 시 하단 바의 선택 아이템을 '레벨러'로 강제 지정합니다.
-        // 이 코드가 실행되면서 위의 리스너가 자동으로 동작해 첫 화면 프래그먼트까지 한 번에 로드됩니다.
+        // 2. [수정] 앱 실행 시 하단 바의 선택 아이템을 '레벨러'로 강제 지정
+        // 이 코드가 실행되면서 위의 리스너가 자동으로 동작해 첫 화면 프래그먼트까지 한 번에 로드
         if (savedInstanceState == null) {
             bottomNav.selectedItemId = R.id.navigation_leveler
         }
