@@ -25,13 +25,13 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
 
     private val accelerometerReading = FloatArray(3)
 
-    // 🎯 센서 노이즈 및 각도 댐핑을 위한 가중치
+    // 센서 노이즈 및 각도 댐핑을 위한 가중치
     private val alpha = 0.07f
 
-    // 🎯 [추가] 최종 계산된 각도가 튀는 것을 막아줄 필터링된 각도 저장 변수
+    // 최종 계산된 각도가 튀는 것을 막아줄 필터링된 각도 저장 변수
     private var filteredAngle = 0.0
 
-    // 🎯 모드 관리 변수 (true: 바닥 눕힘 기준, false: 벽면 세움 기준)
+    // 모드 관리 변수 (true: 바닥 눕힘 기준, false: 벽면 세움 기준)
     private var isFlatMode = true
 
     // UI 컴포넌트 변수
@@ -65,7 +65,7 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
         tvModeStanding = view.findViewById(R.id.tv_mode_standing)
 
         sensorManager = requireActivity().getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        // 🎯 자력계(MAGNETIC)는 사용하지 않으므로 가속도 센서만 깔끔하게 등록합니다.
+        //  자력계(MAGNETIC)는 사용하지 않으므로 가속도 센서만 깔끔하게 등록
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
         initVibrator()
@@ -79,7 +79,7 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
             if (!isFlatMode) {
                 isFlatMode = true
                 isVibrated = false
-                filteredAngle = 0.0 // 🎯 모드 변경 시 이전 각도 잔상이 남지 않도록 초기화
+                filteredAngle = 0.0 // 모드 변경 시 이전 각도 잔상이 남지 않도록 초기화
                 updateToggleUi()
                 calculateTiltAngle()
             }
@@ -89,7 +89,7 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
             if (isFlatMode) {
                 isFlatMode = false
                 isVibrated = false
-                filteredAngle = 0.0 // 🎯 모드 변경 시 이전 각도 잔상이 남지 않도록 초기화
+                filteredAngle = 0.0 // 모드 변경 시 이전 각도 잔상이 남지 않도록 초기화
                 updateToggleUi()
                 calculateTiltAngle()
             }
@@ -135,7 +135,7 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
             applyLowPassFilter(event.values, accelerometerReading)
-            // 🎯 [수정] 오직 가속도 센서가 실제로 새로 측정되었을 때만 계산을 수행합니다.
+            // 오직 가속도 센서가 실제로 새로 측정되었을 때만 계산 수행
             calculateTiltAngle()
         }
     }
@@ -167,8 +167,8 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
             Math.toDegrees(kotlin.math.acos(safeCosTilt).toDouble())
         }
 
-        // 2. 🎯 [핵심] 삼각함수 연산 결과로 나온 최종 각도에 한 번 더 저주파 필터(LPF) 적용
-        // 이 단계를 거쳐야 수식의 제곱 연산 때문에 발생하던 '벽면 모드 특유의 미세한 튐'이 완벽하게 제거됩니다.
+        // 2. 삼각함수 연산 결과로 나온 최종 각도에 한 번 더 저주파 필터(LPF) 적용
+        // 이 단계를 거쳐야 수식의 제곱 연산 때문에 발생하던 '벽면 모드 특유의 미세한 튐' 완벽하게 제거
         if (filteredAngle == 0.0) {
             filteredAngle = rawAngle
         } else {
@@ -177,7 +177,7 @@ class SmartLevelerFragment : Fragment(), SensorEventListener {
 
         val currentAngle = filteredAngle
 
-        // 🎯 수평 판정 및 디자인 매핑 로직 (기존과 동일)
+        // 수평 판정 및 디자인 매핑 로직 
         if (currentAngle <= 0.15) {
             tvCurrentAngle.text = "0.0°"
             tvLevelerStatus.text = "수평이 맞습니다!"
