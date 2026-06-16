@@ -45,10 +45,15 @@
 | **Text Primary** | `#FFFFFF` | 실시간 수평 각도, 메인 타이틀, 강조 텍스트 |
 
 ---
-### 3. UI 예시
+### 3. UI 예시(초기)
 <img width="1127" height="618" alt="스크린샷 2026-05-17 145121" src="https://github.com/user-attachments/assets/1ffa3e84-b4f8-41f8-b958-5209005b25a3" />
 
 <img width="1100" height="625" alt="스크린샷 2026-05-17 145149" src="https://github.com/user-attachments/assets/ca9f06dc-8026-4a35-8afa-5ab6a0dcdd68" />
+
+### UI (최종)
+<img width="1073" height="515" alt="image" src="https://github.com/user-attachments/assets/ee494b44-ef07-45e2-a5da-5e634ca31091" />
+
+<img width="1060" height="510" alt="image" src="https://github.com/user-attachments/assets/285bb8c4-f1fb-49d5-9afc-3c14ba6c4f5b" />
 
 ---
 
@@ -74,6 +79,6 @@
     -  *수평계 정밀 구현* 마무리 (완료 후 깃허브 최종 동기화 필수)
      - 🎬 **5분 발표 영상 제작** : 최종 발표 시 구동 시연 및 핵심 내용을 압축한 5분 내외의 발표 녹화 영상 자료 준비 필요
 - [x] **06.09** : **보강 주간 (수업 없음)** 💻
-  - *주요 목표*: 중간 점검 피드백 반영, 센서 데이터 보정 및 UI 정밀 고도화 기간, 앱 통합 빌드 및 최종 프로젝트 결과물 제작
-- [ ] **06.16** : **최종 프로젝트 발표 및 배포** 🚀
-  - *주요 목표*: 최종 앱 구동 시연, 깃허브 최종 커밋, 최종 발표 자료 및 최종 보고서 제출
+  - *주요 목표*: 중간 점검 피드백 반영, 센서 데이터 보정 및 UI 정밀 고도화 기간, 앱 통합 빌드 및 최종 프로젝트 결과물 제작,최종 앱 구동 시연
+- [x] **06.16** : **최종 프로젝트 발표 및 배포** 🚀
+  - *주요 목표*: 깃허브 최종 커밋, 최종 발표 자료 및 최종 보고서 제출
