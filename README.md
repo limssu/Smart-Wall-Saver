@@ -50,11 +50,69 @@
 
 <img width="1100" height="625" alt="스크린샷 2026-05-17 145149" src="https://github.com/user-attachments/assets/ca9f06dc-8026-4a35-8afa-5ab6a0dcdd68" />
 
-### UI (최종)
+### 🎨 UI (최종)
 <img width="1073" height="515" alt="image" src="https://github.com/user-attachments/assets/ee494b44-ef07-45e2-a5da-5e634ca31091" />
 
 <img width="1048" height="522" alt="image" src="https://github.com/user-attachments/assets/e7464e9b-140a-4b74-b7e9-c1e07896fcf0" />
 
+---
+
+## 🛠️ 핵심 알고리즘 및 기술적 최적화
+
+테스트 과정에서 발생한 기술적 병목 현상을 해결하기 위해 소프트웨어적으로 직접 설계하고 구현한 핵심 로직입니다.
+
+
+### 1. 디지털 수평계(Smart Leveler) 노이즈 정제 및 예외 처리
+* **핵심 기술:** 저역통과필터(Low-Pass Filter) 알고리즘 실장 및 초기 구동 딜레이 예외 처리
+
+가속도·지자기 센서 특성상 손떨림이나 물리적 진동으로 인해 소수점 각도가 지속적으로 튀는 현상(Jitter)을 방지하기 위해 이중 LPF 알고리즘을 적용했습니다. 
+또한, 앱 초기 구동 시 필터 연산 지연으로 인해 각도가 뒤늦게 차오르는 UX 병목을 조건문 분리를 통해 해결했습니다.
+
+```kotlin
+// 삼각함수 연산 결과로 나온 최종 각도에 한 번 더 저주파 필터(LPF) 적용
+// 이 단계를 거쳐야 수식의 제곱 연산 때문에 발생하던 '벽면 모드 특유의 미세한 튐'을 완벽하게 제거
+if (filteredAngle == 0.0) {
+    filteredAngle = rawAngle // 초기 구동 시 실시간 데이터 즉각 반영 (반응성 확보)
+} else {
+    // alpha 값을 활용한 가중치 합성 필터링 수행 (안정성 확보)
+    filteredAngle = filteredAngle + alpha * (rawAngle - filteredAngle)
+}
+```
+### 2. ARCore 기반 3D 배선 매핑 실선 드로잉 및 메모리 최적화
+**핵심 기술:** @volatile을 이용한 멀티스레드 동기화, onDraw() 런타임 메모리 힙 최적화
+
+백그라운드에서 실시간으로 연산되는 ARCore의 GL 스레드 데이터와 화면을 렌더링하는 UI 메인 스레드 간의 데이터 정합성 불일치 문제를 해결하기 위해 메모리 가시성을 확보했습니다. 또한 프레임 드롭(화면 버벅임)을 막기 위해 커스텀 뷰의 드로잉 루프를 최적화했습니다.
+
+```
+// GL 스레드에서 계산이 끝난 순수 2D 화면 좌표들 보관 (메모리 가시성 확보)
+@volatile
+private var screenPoints = listOf<Pair<Float, Float>>()
+
+// 프래그먼트가 GL 스레드에서 연산한 2D 좌표 리스트 사용
+fun updatePoints(points: List<Pair<Float, Float>>) {
+    this.screenPoints = points
+    postInvalidate() // 비동기 스레드에서 UI를 메인 스레드로 강제 재드로잉하도록 안전하게 유도
+}
+
+override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    val points = screenPoints
+    if (points.size < 2) return
+
+    // [최적화] 루프 내 신규 객체 생성 없이, 인덱스 참조만으로 실선 연결
+    // 이를 통해 가비지 컬렉터(GC) 오버헤드와 프레임 드롭을 구조적으로 방지
+    for (i in 0 until points.size - 1) {
+        val p1 = points[i]
+        val p2 = points[i + 1]
+        canvas.drawLine(p1.first, p1.second, p2.first, p2.second, wirePaint)
+    }
+
+    // 2. 꺾이는 지점마다 노드 점 추가
+    for (point in points) {
+        canvas.drawCircle(point.first, point.second, 10f, nodePaint)
+    }
+}
+```
 ---
 
 ## 🛠️ 개발 환경 및 활용 기술
