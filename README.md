@@ -53,7 +53,7 @@
 ### UI (최종)
 <img width="1073" height="515" alt="image" src="https://github.com/user-attachments/assets/ee494b44-ef07-45e2-a5da-5e634ca31091" />
 
-<img width="1060" height="510" alt="image" src="https://github.com/user-attachments/assets/285bb8c4-f1fb-49d5-9afc-3c14ba6c4f5b" />
+<img width="1048" height="522" alt="image" src="https://github.com/user-attachments/assets/e7464e9b-140a-4b74-b7e9-c1e07896fcf0" />
 
 ---
 
